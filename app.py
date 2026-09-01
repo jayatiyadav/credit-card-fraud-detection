@@ -18,7 +18,23 @@ st.set_page_config(
 
 
 # =========================================================
-# LOAD MODEL & DATA
+# CONSTANTS
+# =========================================================
+
+REQUIRED_FEATURES = [
+    "Time",
+    "V1", "V2", "V3", "V4", "V5",
+    "V6", "V7", "V8", "V9", "V10",
+    "V11", "V12", "V13", "V14", "V15",
+    "V16", "V17", "V18", "V19", "V20",
+    "V21", "V22", "V23", "V24", "V25",
+    "V26", "V27", "V28",
+    "Amount"
+]
+
+
+# =========================================================
+# LOAD MODEL
 # =========================================================
 
 @st.cache_resource
@@ -28,13 +44,19 @@ def load_model():
     return model, scaler
 
 
-@st.cache_data
-def load_data():
-    return pd.read_csv("data/demo_transactions.csv")
-
-
 model, scaler = load_model()
-df = load_data()
+
+
+# =========================================================
+# LOAD SMALL DEMO DATA
+# =========================================================
+
+@st.cache_data
+def load_demo_data():
+    return pd.read_csv("data/creditcard.csv")
+
+
+df = load_demo_data()
 
 
 # =========================================================
@@ -121,25 +143,6 @@ st.sidebar.info(
 
 
 # =========================================================
-# COMMON DATA
-# =========================================================
-
-total_transactions = len(df)
-
-fraud_transactions = int(
-    df["Class"].sum()
-)
-
-legitimate_transactions = (
-    total_transactions - fraud_transactions
-)
-
-fraud_rate = (
-    fraud_transactions / total_transactions
-) * 100
-
-
-# =========================================================
 # DASHBOARD
 # =========================================================
 
@@ -161,12 +164,32 @@ if page == "🏠 Dashboard":
 
     st.header("🏠 Dashboard")
 
+    # Demo dataset information
+    total_transactions = len(df)
+
+    if "Class" in df.columns:
+
+        fraud_transactions = int(df["Class"].sum())
+        legitimate_transactions = (
+            total_transactions - fraud_transactions
+        )
+
+        fraud_rate = (
+            fraud_transactions / total_transactions
+        ) * 100
+
+    else:
+
+        legitimate_transactions = total_transactions
+        fraud_transactions = 0
+        fraud_rate = 0
+
     # ---------------- Metrics ----------------
 
     col1, col2, col3, col4 = st.columns(4)
 
     col1.metric(
-        "💳 Total Transactions",
+        "💳 Demo Transactions",
         f"{total_transactions:,}"
     )
 
@@ -185,58 +208,75 @@ if page == "🏠 Dashboard":
         f"{fraud_rate:.2f}%"
     )
 
+    st.info(
+        "Dashboard is using a lightweight demo dataset for deployment. "
+        "The complete 284K+ transaction dataset was used during model training."
+    )
+
     st.divider()
 
     # ---------------- Charts ----------------
 
     st.subheader("📈 Transaction Overview")
 
-    col1, col2 = st.columns(2)
+    if "Class" in df.columns:
 
-    with col1:
+        col1, col2 = st.columns(2)
 
-        fig, ax = plt.subplots()
+        with col1:
 
-        counts = df["Class"].value_counts()
+            fig, ax = plt.subplots()
 
-        ax.bar(
-            ["Legitimate", "Fraud"],
-            [
-                counts.get(0, 0),
-                counts.get(1, 0)
-            ]
+            counts = df["Class"].value_counts()
+
+            ax.bar(
+                ["Legitimate", "Fraud"],
+                [
+                    counts.get(0, 0),
+                    counts.get(1, 0)
+                ]
+            )
+
+            ax.set_title(
+                "Fraud vs Legitimate Transactions"
+            )
+
+            ax.set_ylabel("Number of Transactions")
+
+            st.pyplot(fig)
+
+            plt.close(fig)
+
+        with col2:
+
+            if "Amount" in df.columns:
+
+                fig, ax = plt.subplots()
+
+                ax.hist(
+                    df["Amount"],
+                    bins=30
+                )
+
+                ax.set_title(
+                    "Transaction Amount Distribution"
+                )
+
+                ax.set_xlabel("Transaction Amount")
+
+                ax.set_ylabel("Frequency")
+
+                st.pyplot(fig)
+
+                plt.close(fig)
+
+    else:
+
+        st.warning(
+            "The deployment demo dataset does not contain the "
+            "training label (Class). Use the Analytics page and "
+            "Fraud Detection page for live analysis and prediction."
         )
-
-        ax.set_title(
-            "Fraud vs Legitimate Transactions"
-        )
-
-        ax.set_ylabel("Number of Transactions")
-
-        st.pyplot(fig)
-
-        plt.close(fig)
-
-    with col2:
-
-        fig, ax = plt.subplots()
-
-        ax.hist(
-            df["Amount"],
-            bins=50
-        )
-
-        ax.set_title(
-            "Transaction Amount Distribution"
-        )
-
-        ax.set_xlabel("Transaction Amount")
-
-        ax.set_ylabel("Frequency")
-
-        st.pyplot(fig)
-
-        plt.close(fig)
 
     st.divider()
 
@@ -317,112 +357,136 @@ elif page == "📊 Analytics":
 
     st.divider()
 
-    # ---------------- Amount Analysis ----------------
+    if "Class" in df.columns and "Amount" in df.columns:
 
-    st.subheader("💰 Transaction Amount Analysis")
+        st.subheader("💰 Transaction Amount Analysis")
 
-    col1, col2 = st.columns(2)
+        legitimate = df[df["Class"] == 0]["Amount"]
+        fraud = df[df["Class"] == 1]["Amount"]
 
-    legitimate = df[df["Class"] == 0]["Amount"]
-    fraud = df[df["Class"] == 1]["Amount"]
+        col1, col2 = st.columns(2)
 
-    with col1:
+        with col1:
 
-        fig, ax = plt.subplots()
+            fig, ax = plt.subplots()
 
-        ax.boxplot(
-            [legitimate, fraud],
-            tick_labels=[
-                "Legitimate",
-                "Fraud"
-            ]
+            ax.boxplot(
+                [legitimate, fraud],
+                tick_labels=[
+                    "Legitimate",
+                    "Fraud"
+                ]
+            )
+
+            ax.set_title(
+                "Transaction Amount Comparison"
+            )
+
+            ax.set_ylabel("Amount")
+
+            st.pyplot(fig)
+
+            plt.close(fig)
+
+        with col2:
+
+            fig, ax = plt.subplots()
+
+            ax.hist(
+                fraud,
+                bins=30
+            )
+
+            ax.set_title(
+                "Fraud Transaction Amount Distribution"
+            )
+
+            ax.set_xlabel("Amount")
+
+            ax.set_ylabel("Frequency")
+
+            st.pyplot(fig)
+
+            plt.close(fig)
+
+        st.divider()
+
+        st.subheader("🔴 Fraud Transaction Statistics")
+
+        col1, col2, col3, col4 = st.columns(4)
+
+        col1.metric(
+            "Average",
+            f"${fraud.mean():.2f}"
         )
 
-        ax.set_title(
-            "Transaction Amount Comparison"
+        col2.metric(
+            "Median",
+            f"${fraud.median():.2f}"
         )
 
-        ax.set_ylabel("Amount")
-
-        st.pyplot(fig)
-
-        plt.close(fig)
-
-    with col2:
-
-        fig, ax = plt.subplots()
-
-        ax.hist(
-            fraud,
-            bins=30
+        col3.metric(
+            "Minimum",
+            f"${fraud.min():.2f}"
         )
 
-        ax.set_title(
-            "Fraud Transaction Amount Distribution"
+        col4.metric(
+            "Maximum",
+            f"${fraud.max():.2f}"
         )
 
-        ax.set_xlabel("Amount")
+        st.divider()
 
-        ax.set_ylabel("Frequency")
+        st.subheader("🔗 Features Most Correlated With Fraud")
 
-        st.pyplot(fig)
+        correlations = (
+            df.corr(numeric_only=True)["Class"]
+            .drop("Class")
+            .abs()
+            .sort_values(ascending=False)
+            .head(10)
+        )
 
-        plt.close(fig)
+        st.bar_chart(correlations)
 
-    st.divider()
+    else:
 
-    # ---------------- Fraud Statistics ----------------
+        st.info(
+            "The lightweight deployment dataset does not contain "
+            "Class labels. Training and EDA were performed on the "
+            "original credit-card fraud dataset locally."
+        )
 
-    st.subheader("🔴 Fraud Transaction Statistics")
+        st.subheader("📄 Demo Dataset Preview")
 
-    fraud_stats = fraud.describe()
+        st.dataframe(
+            df.head(10),
+            use_container_width=True,
+            hide_index=True
+        )
 
-    col1, col2, col3, col4 = st.columns(4)
+        if "Amount" in df.columns:
 
-    col1.metric(
-        "Average",
-        f"${fraud.mean():.2f}"
-    )
+            st.subheader("💰 Transaction Amount Distribution")
 
-    col2.metric(
-        "Median",
-        f"${fraud.median():.2f}"
-    )
+            fig, ax = plt.subplots()
 
-    col3.metric(
-        "Minimum",
-        f"${fraud.min():.2f}"
-    )
+            ax.hist(
+                df["Amount"],
+                bins=30
+            )
 
-    col4.metric(
-        "Maximum",
-        f"${fraud.max():.2f}"
-    )
+            ax.set_title(
+                "Demo Transaction Amount Distribution"
+            )
 
-    st.divider()
+            ax.set_xlabel("Amount")
 
-    # ---------------- Correlation ----------------
+            ax.set_ylabel("Frequency")
 
-    st.subheader("🔗 Features Most Correlated With Fraud")
+            st.pyplot(fig)
 
-    correlations = (
-        df.corr(numeric_only=True)["Class"]
-        .drop("Class")
-        .abs()
-        .sort_values(ascending=False)
-        .head(10)
-    )
-
-    st.bar_chart(correlations)
-
-    st.divider()
-
-    st.subheader("🔎 Dataset Preview")
-
-    st.dataframe(
-        df.head(10),
-        use_container_width=True
-    )
+            plt.close(fig)
 
 
 # =========================================================
@@ -473,8 +537,6 @@ elif page == "🤖 Model Performance":
 
     st.subheader("🎯 Confusion Matrix")
 
-    # Results from trained Random Forest model
-
     confusion = np.array([
         [56645, 6],
         [25, 70]
@@ -482,7 +544,7 @@ elif page == "🤖 Model Performance":
 
     fig, ax = plt.subplots()
 
-    image = ax.imshow(confusion)
+    ax.imshow(confusion)
 
     ax.set_title(
         "Random Forest Confusion Matrix"
@@ -578,81 +640,90 @@ elif page == "🔍 Fraud Detection":
     st.divider()
 
     # =====================================================
-    # DEMO TRANSACTION
+    # QUICK DEMO
     # =====================================================
 
     st.subheader("🧪 Quick Demo")
 
     st.write(
-        "Test the trained model using a transaction from "
-        "the dataset."
+        "Run a prediction using an example transaction "
+        "from the deployment demo dataset."
     )
 
-    if st.button("▶️ Run Demo Transaction"):
+    # Demo requires all model features
+    if all(column in df.columns for column in REQUIRED_FEATURES):
 
-        demo_row = df.sample(
-            1,
-            random_state=42
-        )
+        if st.button(
+            "▶️ Run Demo Transaction",
+            type="primary"
+        ):
 
-        required_features = [
-            "Time",
-            "V1", "V2", "V3", "V4", "V5",
-            "V6", "V7", "V8", "V9", "V10",
-            "V11", "V12", "V13", "V14", "V15",
-            "V16", "V17", "V18", "V19", "V20",
-            "V21", "V22", "V23", "V24", "V25",
-            "V26", "V27", "V28",
-            "Amount"
-        ]
-
-        X_demo = demo_row[required_features]
-
-        X_demo_scaled = scaler.transform(
-            X_demo
-        )
-
-        prediction = model.predict(
-            X_demo_scaled
-        )[0]
-
-        probability = model.predict_proba(
-            X_demo_scaled
-        )[0][1]
-
-        st.write("### Transaction")
-
-        st.dataframe(
-            demo_row[
-                ["Time", "Amount", "Class"]
-            ],
-            use_container_width=True,
-            hide_index=True
-        )
-
-        if prediction == 1:
-
-            st.markdown(
-                f"""
-                <div class="result-fraud">
-                <h2>🚨 Potential Fraud Detected</h2>
-                <h3>Fraud Probability: {probability * 100:.2f}%</h3>
-                </div>
-                """,
-                unsafe_allow_html=True
+            demo_row = df.sample(
+                1,
+                random_state=42
             )
 
-        else:
+            X_demo = demo_row[
+                REQUIRED_FEATURES
+            ]
 
-            st.markdown(
-                f"""
-                <div class="result-safe">
-                <h2>✅ Transaction Appears Legitimate</h2>
-                <h3>Fraud Probability: {probability * 100:.2f}%</h3>
-                </div>
-                """,
-                unsafe_allow_html=True
+            X_demo_scaled = scaler.transform(
+                X_demo
             )
+
+            prediction = model.predict(
+                X_demo_scaled
+            )[0]
+
+            probability = model.predict_proba(
+                X_demo_scaled
+            )[0][1]
+
+            st.write("### Transaction")
+
+            display_columns = [
+                column
+                for column in ["Time", "Amount", "Class"]
+                if column in demo_row.columns
+            ]
+
+            st.dataframe(
+                demo_row[display_columns],
+                use_container_width=True,
+                hide_index=True
+            )
+
+            if prediction == 1:
+
+                st.markdown(
+                    f"""
+                    <div class="result-fraud">
+                    <h2>🚨 Potential Fraud Detected</h2>
+                    <h3>Fraud Probability: {probability * 100:.2f}%</h3>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
+
+            else:
+
+                st.markdown(
+                    f"""
+                    <div class="result-safe">
+                    <h2>✅ Transaction Appears Legitimate</h2>
+                    <h3>Fraud Probability: {probability * 100:.2f}%</h3>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
+
+    else:
+
+        st.info(
+            "Quick Demo uses the CSV upload feature below because "
+            "the lightweight deployment dataset does not contain "
+            "all 29 model input features."
+        )
 
     st.divider()
 
@@ -662,162 +733,164 @@ elif page == "🔍 Fraud Detection":
 
     st.subheader("📂 Upload Transaction CSV")
 
+    st.write(
+        "Upload a CSV containing the transaction features used "
+        "during model training."
+    )
+
     uploaded_file = st.file_uploader(
-        "Upload a CSV file containing transaction data",
+        "Choose CSV file",
         type=["csv"]
     )
 
     if uploaded_file is not None:
 
-        uploaded_df = pd.read_csv(
-            uploaded_file
-        )
+        try:
 
-        st.success(
-            "CSV uploaded successfully!"
-        )
+            uploaded_df = pd.read_csv(
+                uploaded_file
+            )
 
-        st.subheader("📄 Uploaded Data")
+            st.success(
+                "CSV uploaded successfully!"
+            )
 
-        st.dataframe(
-            uploaded_df.head(),
-            use_container_width=True
-        )
+            st.subheader("📄 Uploaded Data")
 
-        required_features = [
-            "Time",
-            "V1", "V2", "V3", "V4", "V5",
-            "V6", "V7", "V8", "V9", "V10",
-            "V11", "V12", "V13", "V14", "V15",
-            "V16", "V17", "V18", "V19", "V20",
-            "V21", "V22", "V23", "V24", "V25",
-            "V26", "V27", "V28",
-            "Amount"
-        ]
+            st.dataframe(
+                uploaded_df.head(),
+                use_container_width=True
+            )
 
-        missing_columns = [
-            column
-            for column in required_features
-            if column not in uploaded_df.columns
-        ]
+            missing_columns = [
+                column
+                for column in REQUIRED_FEATURES
+                if column not in uploaded_df.columns
+            ]
 
-        if missing_columns:
+            if missing_columns:
+
+                st.error(
+                    "❌ Required columns are missing."
+                )
+
+                st.write(
+                    missing_columns
+                )
+
+                st.caption(
+                    "Required format: Time, V1-V28 and Amount."
+                )
+
+            else:
+
+                if st.button(
+                    "🚨 Detect Fraud",
+                    type="primary"
+                ):
+
+                    X_new = uploaded_df[
+                        REQUIRED_FEATURES
+                    ]
+
+                    X_scaled = scaler.transform(
+                        X_new
+                    )
+
+                    predictions = model.predict(
+                        X_scaled
+                    )
+
+                    probabilities = (
+                        model.predict_proba(
+                            X_scaled
+                        )[:, 1]
+                    )
+
+                    results = uploaded_df.copy()
+
+                    results["Prediction"] = np.where(
+                        predictions == 1,
+                        "Fraud",
+                        "Legitimate"
+                    )
+
+                    results["Fraud Probability (%)"] = (
+                        probabilities * 100
+                    ).round(2)
+
+                    st.subheader(
+                        "📋 Prediction Results"
+                    )
+
+                    st.dataframe(
+                        results,
+                        use_container_width=True
+                    )
+
+                    fraud_count = int(
+                        (predictions == 1).sum()
+                    )
+
+                    legitimate_count = int(
+                        (predictions == 0).sum()
+                    )
+
+                    st.divider()
+
+                    col1, col2, col3 = st.columns(3)
+
+                    col1.metric(
+                        "🔴 Potential Fraud",
+                        fraud_count
+                    )
+
+                    col2.metric(
+                        "🟢 Legitimate",
+                        legitimate_count
+                    )
+
+                    col3.metric(
+                        "📊 Total",
+                        len(predictions)
+                    )
+
+                    st.subheader(
+                        "📈 Fraud Probability"
+                    )
+
+                    probability_df = pd.DataFrame({
+                        "Transaction": range(
+                            1,
+                            len(probabilities) + 1
+                        ),
+                        "Fraud Probability": (
+                            probabilities * 100
+                        )
+                    })
+
+                    st.bar_chart(
+                        probability_df.set_index(
+                            "Transaction"
+                        )
+                    )
+
+                    csv = results.to_csv(
+                        index=False
+                    ).encode("utf-8")
+
+                    st.download_button(
+                        "⬇️ Download Predictions",
+                        csv,
+                        "fraud_predictions.csv",
+                        "text/csv"
+                    )
+
+        except Exception as e:
 
             st.error(
-                "❌ Required columns are missing."
+                f"Unable to process the uploaded CSV: {e}"
             )
-
-            st.write(
-                missing_columns
-            )
-
-        else:
-
-            if st.button(
-                "🚨 Detect Fraud",
-                type="primary"
-            ):
-
-                X_new = uploaded_df[
-                    required_features
-                ]
-
-                X_scaled = scaler.transform(
-                    X_new
-                )
-
-                predictions = model.predict(
-                    X_scaled
-                )
-
-                probabilities = (
-                    model.predict_proba(
-                        X_scaled
-                    )[:, 1]
-                )
-
-                results = uploaded_df.copy()
-
-                results["Prediction"] = np.where(
-                    predictions == 1,
-                    "Fraud",
-                    "Legitimate"
-                )
-
-                results["Fraud Probability (%)"] = (
-                    probabilities * 100
-                ).round(2)
-
-                st.subheader(
-                    "📋 Prediction Results"
-                )
-
-                st.dataframe(
-                    results,
-                    use_container_width=True
-                )
-
-                fraud_count = int(
-                    (predictions == 1).sum()
-                )
-
-                legitimate_count = int(
-                    (predictions == 0).sum()
-                )
-
-                st.divider()
-
-                col1, col2, col3 = st.columns(3)
-
-                col1.metric(
-                    "🔴 Potential Fraud",
-                    fraud_count
-                )
-
-                col2.metric(
-                    "🟢 Legitimate",
-                    legitimate_count
-                )
-
-                col3.metric(
-                    "📊 Total",
-                    len(predictions)
-                )
-
-                # ---------------- Probability Chart ----------------
-
-                st.subheader(
-                    "📈 Fraud Probability"
-                )
-
-                probability_df = pd.DataFrame({
-                    "Transaction": range(
-                        1,
-                        len(probabilities) + 1
-                    ),
-                    "Fraud Probability": (
-                        probabilities * 100
-                    )
-                })
-
-                st.bar_chart(
-                    probability_df.set_index(
-                        "Transaction"
-                    )
-                )
-
-                # ---------------- Download ----------------
-
-                csv = results.to_csv(
-                    index=False
-                ).encode("utf-8")
-
-                st.download_button(
-                    "⬇️ Download Predictions",
-                    csv,
-                    "fraud_predictions.csv",
-                    "text/csv"
-                )
 
     st.divider()
 
